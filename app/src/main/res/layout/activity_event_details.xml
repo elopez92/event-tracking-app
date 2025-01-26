@@ -1,0 +1,65 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/eventName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Event Name"
+        android:textColorHint="@color/colorOnPrimary"
+        android:textColor="?attr/colorOnBackground" />
+
+    <EditText
+        android:id="@+id/phoneNumberET"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Phone Number"
+        android:inputType="number"
+        android:layout_marginTop="16dp"
+        android:textColorHint="@color/colorOnPrimary"
+        android:textColor="?attr/colorOnBackground" />
+
+    <Button
+        android:id="@+id/dateButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select Date"
+        android:layout_marginTop="16dp"
+        android:background="?attr/colorPrimary"
+        android:textColor="?attr/colorOnPrimary" />
+
+    <TextView
+        android:id="@+id/eventDate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No date selected"
+        android:textColor="?attr/colorOnBackground" />
+
+    <Button
+        android:id="@+id/timeButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select Time"
+        android:layout_marginTop="16dp"
+        android:background="?attr/colorPrimary"
+        android:textColor="?attr/colorOnPrimary" />
+
+    <TextView
+        android:id="@+id/eventTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No time selected"
+        android:textColor="?attr/colorOnBackground" />
+
+    <Button
+        android:id="@+id/saveButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Save"
+        android:layout_marginTop="16dp"
+        android:background="?attr/colorSecondary"
+        android:textColor="?attr/colorOnPrimary" />
+</LinearLayout>

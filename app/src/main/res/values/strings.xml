@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Event Tracker</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="login">Login</string>
+    <string name="signup">Signup</string>
+    <string name="add_event">Add Event</string>
+</resources>
