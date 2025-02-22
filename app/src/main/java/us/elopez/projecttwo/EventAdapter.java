@@ -7,13 +7,17 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
 import java.util.List;
+
+import us.elopez.projecttwo.data.model.EventEntity;
 
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
 
-    private List<Event> eventList;
+    private List<EventEntity> eventList = new ArrayList<>();
     private OnItemClickListener onItemClickListener;
 
     public interface OnItemClickListener {
@@ -24,8 +28,43 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         onItemClickListener = listener;
     }
 
-    public EventAdapter(List<Event> events) {
-        eventList = events;
+    public EventAdapter() {
+    }
+
+    public void setEvents(List<EventEntity> events){
+        if(eventList == null)
+            return;
+        DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override
+            public int getOldListSize() {
+                if(eventList == null)
+                    return 0;
+                return eventList.size();
+            }
+
+            @Override
+            public int getNewListSize() {
+                return events.size();
+            }
+
+            @Override
+            public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
+                return eventList.get(oldItemPosition).getId() == events.get(newItemPosition).getId();
+            }
+
+            @Override
+            public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
+                return eventList.get(oldItemPosition).equals(events.get(newItemPosition));
+            }
+        });
+
+        eventList.clear();
+        eventList.addAll(events);
+        diffResult.dispatchUpdatesTo(this);
+    }
+
+    public EventEntity getEventAt(int position){
+        return eventList.get(position);
     }
 
     @NonNull
@@ -37,13 +76,26 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     @Override
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
-        Event currentEvent = eventList.get(position);
+        EventEntity currentEvent = eventList.get(position);
         holder.eventNameTextView.setText(currentEvent.getName());
         holder.eventDateTimeTextView.setText(currentEvent.getDatetime());
     }
 
+    public void removeEventAt(int position) {
+        eventList.remove(position);
+        notifyItemRemoved(position);
+    }
+
+    public void addEvent(EventEntity event){
+        eventList.add(event);
+        notifyItemInserted(eventList.size() - 1);
+    }
+
     @Override
     public int getItemCount() {
+        if(eventList == null)
+            return 0;
+
         return eventList.size();
     }
 
@@ -55,20 +107,8 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         public EventViewHolder(@NonNull View itemView, final OnItemClickListener listener) {
             super(itemView);
             eventNameTextView = itemView.findViewById(R.id.eventName);
-            eventDateTimeTextView = itemView.findViewById(R.id.eventDateTime);
-            deleteButton = itemView.findViewById(R.id.deleteButton);
+            eventDateTimeTextView = itemView.findViewById(R.id.eventDate);
 
-            deleteButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    if (listener != null) {
-                        int position = getAdapterPosition();
-                        if (position != RecyclerView.NO_POSITION) {
-                            listener.onDeleteClick(position);
-                        }
-                    }
-                }
-            });
         }
     }
 }

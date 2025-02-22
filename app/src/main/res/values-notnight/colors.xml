@@ -4,7 +4,7 @@
     <color name="colorPrimaryVariant">#1976D2</color>
     <color name="colorSecondary">#FFC107</color>
     <color name="colorSecondaryVariant">#FFA000</color>
-    <color name="colorBackground">#121212</color>
+    <color name="colorBackground">#313131</color>
     <color name="colorSurface">#121212</color>
     <color name="colorError">#CF6679</color>
     <color name="colorOnPrimary">#FFFFFF</color>

@@ -11,6 +11,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.sqlite.SQLiteDatabase;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -21,8 +23,11 @@ import android.widget.TimePicker;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -30,21 +35,22 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
-public class EventDetailsActivity extends Activity {
+import us.elopez.projecttwo.data.model.EventEntity;
+import us.elopez.projecttwo.viewmodel.EventViewModel;
+
+public class EventDetailsActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 100;
 
-    private EditText eventNameEditText;
-    private EditText phoneNumberEditText;
-    private TextView eventDateTextView;
-    private TextView eventTimeTextView;
-    private Button saveButton;
-    private Button dateButton;
-    private Button timeButton;
-    private DatabaseHelper dbHelper;
-    private SQLiteDatabase db;
+    private EditText eventNameEditText, phoneNumberEditText;
+    private TextView eventDateTextView, eventTimeTextView;
+    private Button saveButton, dateButton, timeButton, cancelButton;
     private int year, month, day, hour, minute;
     private SharedPreferences sharedPreferences;
+    private String username;
+    private EventViewModel eventViewModel;
+    private AppDatabase db;
+    private int eventId = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,12 +64,31 @@ public class EventDetailsActivity extends Activity {
         saveButton = findViewById(R.id.saveButton);
         dateButton = findViewById(R.id.dateButton);
         timeButton = findViewById(R.id.timeButton);
+        cancelButton = findViewById(R.id.cancelButton);
 
-        dbHelper = new DatabaseHelper(this);
-        db = dbHelper.getWritableDatabase();
         sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        username = sharedPreferences.getString("username", "");
+
+        db = AppDatabase.getInstance(this);
+        eventViewModel = new ViewModelProvider(this, new EventViewModel.Factory(db.eventDao(), username)).get(EventViewModel.class);
 
         NotificationHelper.createNotificationChannel(this);
+
+        cancelButton.setOnClickListener(view ->{
+            finish();
+        });
+
+        // In onCreate of EventDetailsActivity
+        eventId = getIntent().getIntExtra("event_id", -1);
+        if (eventId != -1) {
+            eventViewModel.getEventById(eventId).observe(this, event -> {
+                if (event != null) {
+                    eventNameEditText.setText(event.event_name);
+                    eventDateTextView.setText(event.event_datetime);
+                }
+            });
+        }
+
 
         dateButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -110,30 +135,7 @@ public class EventDetailsActivity extends Activity {
         saveButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String eventName = eventNameEditText.getText().toString();
-                String eventDate = eventDateTextView.getText().toString();
-                String eventTime = eventTimeTextView.getText().toString();
-                String phoneNumber = phoneNumberEditText.getText().toString();
-                String username = sharedPreferences.getString("username", "");
-                String eventDateTime = eventDate + " " + eventTime;
-
-                // Ensure the date and time format is consistent
-                SimpleDateFormat inputDateFormat = new SimpleDateFormat("MM/dd/yyyy hh:mm a", Locale.getDefault());
-
-                try {
-                    Date date = inputDateFormat.parse(eventDateTime);
-                    if (date != null) {
-                        eventDateTime = inputDateFormat.format(date);
-                    }
-                } catch (ParseException e) {
-                    e.printStackTrace();
-                }
-
-                if (!eventName.isEmpty() && !eventDate.isEmpty() && !eventTime.isEmpty()) {
-                    saveEvent(eventName, eventDateTime, phoneNumber, username);
-                } else {
-                    Toast.makeText(EventDetailsActivity.this, "Please enter event details", Toast.LENGTH_SHORT).show();
-                }
+               saveEvent();
             }
         });
     }
@@ -177,6 +179,13 @@ public class EventDetailsActivity extends Activity {
                 eventCalendar.setTime(eventDate);
             }
 
+            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            if(!alarmManager.canScheduleExactAlarms()) {
+                System.out.println("Exact alarm permission not granted. Skipping alarm ");
+                requestExactAlarmPermission();
+                return;
+            }
+
             // Set notification for the start of the event day
             Calendar notificationCalendar = Calendar.getInstance();
             notificationCalendar.set(eventCalendar.get(Calendar.YEAR), eventCalendar.get(Calendar.MONTH), eventCalendar.get(Calendar.DAY_OF_MONTH), 0, 0, 0);
@@ -191,11 +200,13 @@ public class EventDetailsActivity extends Activity {
                 intent.putExtra("eventName", eventName);
                 intent.putExtra("eventDateTime", eventDateTime);
                 intent.putExtra("phoneNumber", phoneNumber);
+
                 PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-                AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-                if (alarmManager != null) {
+                try {
                     alarmManager.setExact(AlarmManager.RTC_WAKEUP, notificationCalendar.getTimeInMillis(), pendingIntent);
+                } catch (SecurityException e) {
+                    e.printStackTrace();
                 }
             }
         } catch (ParseException e) {
@@ -211,24 +222,56 @@ public class EventDetailsActivity extends Activity {
         sendBroadcast(intent);
     }
 
-    private void saveEvent(String eventName, String eventDateTime, String phoneNumber, String username) {
-        db.execSQL("INSERT INTO " + DatabaseHelper.TABLE_EVENTS + " (" +
-                        DatabaseHelper.COLUMN_EVENT_NAME + ", " +
-                        DatabaseHelper.COLUMN_EVENT_DATETIME + ", " +
-                        DatabaseHelper.COLUMN_USER + ") VALUES (?, ?, ?);",
-                new String[]{eventName, eventDateTime, username});
+    private void saveEvent() {
+        try {
+            String eventName = eventNameEditText.getText().toString();
+            String eventDate = eventDateTextView.getText().toString();
+            String eventTime = eventTimeTextView.getText().toString();
+            String phoneNumber = phoneNumberEditText.getText().toString();
+            String username = sharedPreferences.getString("username", "");
+            String eventDateTime = eventDate + " " + eventTime;
 
-        requestPermissions();
+            // Ensure the date and time format is consistent
+            SimpleDateFormat inputDateFormat = new SimpleDateFormat("MM/dd/yyyy hh:mm a", Locale.getDefault());
 
-        scheduleNotification(eventName, eventDateTime, phoneNumber);
+            try {
+                Date date = inputDateFormat.parse(eventDateTime);
+                if (date != null) {
+                    eventDateTime = inputDateFormat.format(date);
+                }
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
 
-        Intent resultIntent = new Intent();
-        resultIntent.putExtra("eventName", eventName);
-        resultIntent.putExtra("eventDateTime", eventDateTime);
-        setResult(RESULT_OK, resultIntent);
-        finish();
-        Toast.makeText(this, "Event added", Toast.LENGTH_SHORT).show();
-        finish();
+            if(eventId != -1){
+                EventEntity updatedEvent = new EventEntity(eventId, eventName, eventDateTime, username);
+
+                // Insert event using viewmodel
+                eventViewModel.updateEvent(updatedEvent);
+                Toast.makeText(this, "Event updated", Toast.LENGTH_SHORT).show();
+            }else {
+                EventEntity newEvent = new EventEntity(eventName, eventDateTime, username);
+                // Insert event using viewmodel
+                eventViewModel.insertEvent(newEvent);
+                Toast.makeText(this, "Event added", Toast.LENGTH_SHORT).show();
+            }
+
+            requestPermissions();
+
+            scheduleNotification(eventName, eventDateTime, phoneNumber);
+
+            finish();
+        }catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error saving event. Please try again", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void requestExactAlarmPermission() {
+        Intent intent = new Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+        intent.setData(Uri.parse("package:" + getPackageName()));
+        startActivity(intent);
+        Toast.makeText(this, "Please enable exact alarm permission in settings", Toast.LENGTH_LONG).show();
     }
 
 }
